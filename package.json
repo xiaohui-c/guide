@@ -1,0 +1,25 @@
+{
+  "name": "vue2-vite-guide",
+  "version": "1.0.0",
+  "type": "module",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "serve": "vite preview"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "devDependencies": {
+    "@vitejs/plugin-vue2": "^1.1.2",
+    "vite": "^4.5.0",
+    "vue": "^2.7.14"
+  },
+  "dependencies": {
+    "vue-router": "^3.6.5",
+    "vue-template-compiler": "^2.7.14",
+    "vuex": "^3.6.2"
+  }
+}
