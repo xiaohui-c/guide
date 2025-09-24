@@ -55,29 +55,6 @@
         @next-step="nextStep"
         @finish="finish"
       />
-      <!-- <div
-        class="guide-content"
-        :style="contentStyle"
-      >
-        <h3>{{ currentStep.title }}</h3>
-        <p>{{ currentStep.content }}</p>
-        <div class="guide-buttons">
-          <button
-            v-if="currentStepIndex < steps.length - 1"
-            class="guide-button-next"
-            @click="nextStep"
-          >
-            {{ nextButtonText }}
-          </button>
-          <button
-            v-else
-            class="guide-button-next"
-            @click="finish"
-          >
-            {{ finishButtonText }}
-          </button>
-        </div>
-      </div> -->
     </div>
     
     <GuideTabBar
