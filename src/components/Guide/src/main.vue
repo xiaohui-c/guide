@@ -49,6 +49,7 @@
         :currentStep="currentStep"
         :currentStepIndex="currentStepIndex"
         :steps="steps"
+        v-draggable
         :contentStyle="contentStyle"
         :nextButtonText="nextButtonText"
         :finishButtonText="finishButtonText"
