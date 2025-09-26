@@ -1,7 +1,7 @@
 # guide
 a tool for  auto  guide
 
-# 使用示例
+##### 使用示例
 ```vue
 <template>
   <div id="app">
@@ -243,3 +243,536 @@ body {
 }
 </style>
 ```
+
+
+
+##### 弹窗和高亮区域智能定位方案示例
+
+```vue
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>智能弹窗位置计算 - 防重叠优化</title>
+  <script src="https://cdn.jsdelivr.net/npm/vue@2.6.14/dist/vue.js"></script>
+  <style>
+    body {
+      font-family: 'PingFang SC', 'Microsoft YaHei', sans-serif;
+      background-color: #f5f7fa;
+      color: #333;
+      margin: 0;
+      padding: 20px;
+    }
+    .container {
+      max-width: 1200px;
+      margin: 0 auto;
+    }
+    .header {
+      text-align: center;
+      margin-bottom: 40px;
+    }
+    .main-image-wrapper {
+      position: relative;
+      width: 800px;
+      height: 400px;
+      margin: 0 auto;
+      border: 2px solid #ddd;
+      border-radius: 12px;
+      overflow: hidden;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+    }
+    .main-image {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+    }
+    .highlight-area {
+      position: absolute;
+      border: 2px dashed #3498db;
+      background-color: rgba(52, 152, 219, 0.2);
+      border-radius: 8px;
+      cursor: move;
+      transition: all 0.3s ease;
+    }
+    .highlight-area:hover {
+      background-color: rgba(52, 152, 219, 0.3);
+    }
+    .guide-content {
+      position: absolute;
+      background: white;
+      border-radius: 12px;
+      padding: 20px;
+      box-shadow: 0 5px 20px rgba(0,0,0,0.15);
+      width: 300px;
+      z-index: 100;
+      animation: fadeIn 0.3s ease;
+      pointer-events: auto;
+      transition: all 0.3s ease;
+    }
+    .guide-content-arrow {
+      position: absolute;
+      width: 0;
+      height: 0;
+      border: 12px solid transparent;
+      z-index: 101;
+    }
+    .guide-content h3 {
+      margin-bottom: 10px;
+      color: #2c3e50;
+    }
+    .guide-content p {
+      margin-bottom: 20px;
+      color: #7f8c8d;
+      line-height: 1.5;
+    }
+    .controls {
+      display: flex;
+      justify-content: center;
+      margin-top: 20px;
+      gap: 10px;
+    }
+    button {
+      padding: 10px 20px;
+      background: #3498db;
+      color: white;
+      border: none;
+      border-radius: 4px;
+      cursor: pointer;
+      font-size: 16px;
+      transition: background 0.3s;
+    }
+    button:hover {
+      background: #2980b9;
+    }
+    .position-info {
+      text-align: center;
+      margin-top: 20px;
+      padding: 15px;
+      background: #ecf0f1;
+      border-radius: 4px;
+      box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+    }
+    .zone-indicator {
+      position: absolute;
+      width: 100%;
+      height: 100%;
+      pointer-events: none;
+      z-index: 50;
+    }
+    .zone-line {
+      position: absolute;
+      background: rgba(0,0,0,0.05);
+    }
+    .zone-line.vertical {
+      width: 1px;
+      height: 100%;
+    }
+    .zone-line.horizontal {
+      width: 100%;
+      height: 1px;
+    }
+    .zone-label {
+      position: absolute;
+      font-size: 12px;
+      color: #95a5a6;
+      background: rgba(255,255,255,0.8);
+      padding: 2px 5px;
+      border-radius: 3px;
+    }
+    @keyframes fadeIn {
+      from { opacity: 0; transform: translateY(10px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+  </style>
+</head>
+<body>
+  <div id="app">
+    <div class="container">
+      <div class="header">
+        <h1>智能弹窗位置计算算法 - 防重叠优化</h1>
+        <p>拖动高亮区域，观察弹窗如何智能调整位置，确保不会重叠</p>
+      </div>
+      <div class="main-image-wrapper" ref="imageWrapper">
+        <img src="https://picsum.photos/id/1015/800/400" alt="示例图片" class="main-image">
+        
+        <!-- 九宫格指示器 -->
+        <div class="zone-indicator">
+          <div class="zone-line vertical" style="left: 33.33%"></div>
+          <div class="zone-line vertical" style="left: 66.66%"></div>
+          <div class="zone-line horizontal" style="top: 33.33%"></div>
+          <div class="zone-line horizontal" style="top: 66.66%"></div>
+          <div class="zone-label" style="top: 10px; left: 10px">左上</div>
+          <div class="zone-label" style="top: 10px; left: 50%; transform: translateX(-50%)">上中</div>
+          <div class="zone-label" style="top: 10px; right: 10px">右上</div>
+          <div class="zone-label" style="top: 50%; left: 10px; transform: translateY(-50%)">左中</div>
+          <div class="zone-label" style="top: 50%; left: 50%; transform: translate(-50%, -50%)">中心</div>
+          <div class="zone-label" style="top: 50%; right: 10px; transform: translateY(-50%)">右中</div>
+          <div class="zone-label" style="bottom: 10px; left: 10px">左下</div>
+          <div class="zone-label" style="bottom: 10px; left: 50%; transform: translateX(-50%)">下中</div>
+          <div class="zone-label" style="bottom: 10px; right: 10px">右下</div>
+        </div>
+        
+        <!-- 高亮区域 -->
+        <div 
+          class="highlight-area" 
+          :style="{
+            left: highlightArea.left + 'px',
+            top: highlightArea.top + 'px',
+            width: highlightArea.width + 'px',
+            height: highlightArea.height + 'px'
+          }"
+          @mousedown="startDrag"
+        ></div>
+        
+        <!-- 弹窗 -->
+        <div 
+          v-if="showPopup" 
+          class="guide-content"
+          :style="popupStyle"
+        >
+          <h3>智能弹窗</h3>
+          <p>这个弹窗的位置是根据高亮区域的位置智能计算的，确保不会重叠且保持合适的距离。</p>
+          <p>当前位置: {{ currentPosition }}</p>
+          <p>高亮区域所在区域: {{ highlightZoneName }}</p>
+          
+          <!-- 三角形箭头 -->
+          <div class="guide-content-arrow" :style="arrowStyle"></div>
+        </div>
+      </div>
+      
+      <div class="position-info">
+        <p>高亮区域位置: ({{ highlightArea.left }}, {{ highlightArea.top }})，尺寸: {{ highlightArea.width }}×{{ highlightArea.height }}</p>
+        <p>弹窗位置: {{ currentPosition }}</p>
+        <p>高亮区域所在区域: {{ highlightZoneName }}</p>
+      </div>
+      
+      <div class="controls">
+        <button @click="togglePopup">{{ showPopup ? '隐藏弹窗' : '显示弹窗' }}</button>
+        <button @click="randomizeHighlightArea">随机高亮区域</button>
+        <button @click="toggleZoneIndicator">{{ showZoneIndicator ? '隐藏九宫格' : '显示九宫格' }}</button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    new Vue({
+      el: '#app',
+      data: {
+        showPopup: true,
+        showZoneIndicator: true,
+        highlightArea: {
+          left: 200,
+          top: 150,
+          width: 100,
+          height: 80
+        },
+        isDragging: false,
+        dragOffset: { x: 0, y: 0 },
+        currentPosition: '右侧',
+        highlightZoneName: '中心'
+      },
+      computed: {
+        // 计算弹窗位置
+        popupStyle() {
+          const containerWidth = 800;
+          const containerHeight = 400;
+          const popupWidth = 300;
+          const popupHeight = 160;
+          const margin = 20;
+
+          // 高亮区域中心点
+          const highlightCenterX = this.highlightArea.left + this.highlightArea.width / 2;
+          const highlightCenterY = this.highlightArea.top + this.highlightArea.height / 2;
+
+          // 计算高亮区域所在的九宫格位置
+          const zoneX = Math.floor(highlightCenterX / (containerWidth / 3));
+          const zoneY = Math.floor(highlightCenterY / (containerHeight / 3));
+          const zone = zoneY * 3 + zoneX;
+
+          // 区域名称映射
+          const zoneNames = ['左上', '上中', '右上', '左中', '中心', '右中', '左下', '下中', '右下'];
+          this.highlightZoneName = zoneNames[zone];
+
+          // 定义每个区域的首选和备选弹窗位置
+          const positionPreferences = {
+            0: ['right', 'bottom', 'left', 'top'],
+            1: ['bottom', 'right', 'left', 'top'],
+            2: ['left', 'bottom', 'right', 'top'],
+            3: ['right', 'bottom', 'top', 'left'],
+            4: ['right', 'bottom', 'left', 'top'],
+            5: ['left', 'bottom', 'top', 'right'],
+            6: ['right', 'top', 'bottom', 'left'],
+            7: ['top', 'right', 'left', 'bottom'],
+            8: ['left', 'top', 'bottom', 'right']
+          };
+
+          let bestPosition = null;
+          let bestCoords = null;
+          for (const position of positionPreferences[zone]) {
+            let left, top;
+            switch (position) {
+              case 'right':
+                left = this.highlightArea.left + this.highlightArea.width + margin;
+                top = highlightCenterY - popupHeight / 2;
+                break;
+              case 'left':
+                left = this.highlightArea.left - popupWidth - margin;
+                top = highlightCenterY - popupHeight / 2;
+                break;
+              case 'top':
+                left = highlightCenterX - popupWidth / 2;
+                top = this.highlightArea.top - popupHeight - margin;
+                break;
+              case 'bottom':
+                left = highlightCenterX - popupWidth / 2;
+                top = this.highlightArea.top + this.highlightArea.height + margin;
+                break;
+            }
+            left = Math.max(margin, Math.min(containerWidth - popupWidth - margin, left));
+            top = Math.max(margin, Math.min(containerHeight - popupHeight - margin, top));
+            if (!this.checkOverlap(left, top, popupWidth, popupHeight)) {
+              bestPosition = position;
+              bestCoords = { left, top };
+              break;
+            }
+          }
+          if (!bestPosition) {
+            let minOverlap = Infinity;
+            for (const position of positionPreferences[zone]) {
+              let left, top;
+              switch (position) {
+                case 'right':
+                  left = this.highlightArea.left + this.highlightArea.width + margin;
+                  top = highlightCenterY - popupHeight / 2;
+                  break;
+                case 'left':
+                  left = this.highlightArea.left - popupWidth - margin;
+                  top = highlightCenterY - popupHeight / 2;
+                  break;
+                case 'top':
+                  left = highlightCenterX - popupWidth / 2;
+                  top = this.highlightArea.top - popupHeight - margin;
+                  break;
+                case 'bottom':
+                  left = highlightCenterX - popupWidth / 2;
+                  top = this.highlightArea.top + this.highlightArea.height + margin;
+                  break;
+              }
+              left = Math.max(margin, Math.min(containerWidth - popupWidth - margin, left));
+              top = Math.max(margin, Math.min(containerHeight - popupHeight - margin, top));
+              const overlapArea = this.getOverlapArea(left, top, popupWidth, popupHeight);
+              if (overlapArea < minOverlap) {
+                minOverlap = overlapArea;
+                bestPosition = position;
+                bestCoords = { left, top };
+              }
+            }
+          }
+          switch (bestPosition) {
+            case 'right': this.currentPosition = '右侧'; break;
+            case 'left': this.currentPosition = '左侧'; break;
+            case 'top': this.currentPosition = '上方'; break;
+            case 'bottom': this.currentPosition = '下方'; break;
+          }
+          // 只要弹窗在左侧，统一往左移动50px
+          if (bestPosition === 'left') {
+            bestCoords.left = Math.max(margin, bestCoords.left - 50);
+          }
+          return {
+            left: bestCoords.left + 'px',
+            top: bestCoords.top + 'px'
+          };
+        },
+        
+        // 计算箭头样式
+        arrowStyle() {
+          const containerWidth = 800;
+          const containerHeight = 400;
+          const popupWidth = 300;
+          const popupHeight = 160;
+          const margin = 20;
+          
+          // 高亮区域中心点
+          const highlightCenterX = this.highlightArea.left + this.highlightArea.width / 2;
+          const highlightCenterY = this.highlightArea.top + this.highlightArea.height / 2;
+          
+          // 计算弹窗位置
+          const popupStyle = this.popupStyle;
+          const popupLeft = parseInt(popupStyle.left);
+          const popupTop = parseInt(popupStyle.top);
+          
+          let arrowStyle = {};
+          
+          // 根据弹窗位置设置箭头
+          if (this.currentPosition === '右侧') {
+            arrowStyle = {
+              left: '-12px',
+              top: (highlightCenterY - popupTop) + 'px',
+              borderRight: '12px solid white',
+              borderTop: '12px solid transparent',
+              borderBottom: '12px solid transparent',
+              borderLeft: 'none'
+            };
+          } else if (this.currentPosition === '左侧') {
+            arrowStyle = {
+              right: '-12px',
+              top: (highlightCenterY - popupTop) + 'px',
+              borderLeft: '12px solid white',
+              borderTop: '12px solid transparent',
+              borderBottom: '12px solid transparent',
+              borderRight: 'none'
+            };
+          } else if (this.currentPosition === '上方') {
+            arrowStyle = {
+              top: '100%',
+              left: (highlightCenterX - popupLeft - 12) + 'px',
+              borderTop: '12px solid white',
+              borderLeft: '12px solid transparent',
+              borderRight: '12px solid transparent',
+              borderBottom: 'none'
+            };
+          } else if (this.currentPosition === '下方') {
+            arrowStyle = {
+              bottom: '100%',
+              left: (highlightCenterX - popupLeft - 12) + 'px',
+              borderBottom: '12px solid white',
+              borderLeft: '12px solid transparent',
+              borderRight: '12px solid transparent',
+              borderTop: 'none'
+            };
+          }
+          
+          return arrowStyle;
+        }
+      },
+      methods: {
+        // 检查位置是否有效（不超出边界且有足够空间，且不与高亮区域重叠）
+        isPositionValid(position, containerWidth, containerHeight, popupWidth, popupHeight, margin) {
+          const highlightCenterX = this.highlightArea.left + this.highlightArea.width / 2;
+          const highlightCenterY = this.highlightArea.top + this.highlightArea.height / 2;
+          
+          let left, top;
+          
+          switch (position) {
+            case 'right':
+              left = this.highlightArea.left + this.highlightArea.width + margin;
+              top = highlightCenterY - popupHeight / 2;
+              // 检查是否超出右边界
+              if (left + popupWidth > containerWidth) return false;
+              // 检查是否与高亮区域重叠
+              if (this.checkOverlap(left, top, popupWidth, popupHeight)) return false;
+              break;
+            case 'left':
+              left = this.highlightArea.left - popupWidth - margin;
+              top = highlightCenterY - popupHeight / 2;
+              // 检查是否超出左边界
+              if (left < 0) return false;
+              // 检查是否与高亮区域重叠
+              if (this.checkOverlap(left, top, popupWidth, popupHeight)) return false;
+              break;
+            case 'top':
+              left = highlightCenterX - popupWidth / 2;
+              top = this.highlightArea.top - popupHeight - margin;
+              // 检查是否超出上边界
+              if (top < 0) return false;
+              // 检查是否与高亮区域重叠
+              if (this.checkOverlap(left, top, popupWidth, popupHeight)) return false;
+              break;
+            case 'bottom':
+              left = highlightCenterX - popupWidth / 2;
+              top = this.highlightArea.top + this.highlightArea.height + margin;
+              // 检查是否超出下边界
+              if (top + popupHeight > containerHeight) return false;
+              // 检查是否与高亮区域重叠
+              if (this.checkOverlap(left, top, popupWidth, popupHeight)) return false;
+              break;
+            default:
+              return false;
+          }
+          
+          return true;
+        },
+        
+        // 检查弹窗是否与高亮区域重叠
+        checkOverlap(popupLeft, popupTop, popupWidth, popupHeight) {
+          const highlightLeft = this.highlightArea.left;
+          const highlightTop = this.highlightArea.top;
+          const highlightWidth = this.highlightArea.width;
+          const highlightHeight = this.highlightArea.height;
+          
+          // 检查矩形是否重叠
+          return !(popupLeft + popupWidth < highlightLeft || 
+                 popupLeft > highlightLeft + highlightWidth || 
+                 popupTop + popupHeight < highlightTop || 
+                 popupTop > highlightTop + highlightHeight);
+        },
+        
+        // 计算重叠面积
+        getOverlapArea(popupLeft, popupTop, popupWidth, popupHeight) {
+          const highlightLeft = this.highlightArea.left;
+          const highlightTop = this.highlightArea.top;
+          const highlightWidth = this.highlightArea.width;
+          const highlightHeight = this.highlightArea.height;
+          const x_overlap = Math.max(0, Math.min(popupLeft + popupWidth, highlightLeft + highlightWidth) - Math.max(popupLeft, highlightLeft));
+          const y_overlap = Math.max(0, Math.min(popupTop + popupHeight, highlightTop + highlightHeight) - Math.max(popupTop, highlightTop));
+          return x_overlap * y_overlap;
+        },
+        
+        // 开始拖动高亮区域
+        startDrag(e) {
+          this.isDragging = true;
+          this.dragOffset.x = e.clientX - this.highlightArea.left;
+          this.dragOffset.y = e.clientY - this.highlightArea.top;
+          
+          document.addEventListener('mousemove', this.onDrag);
+          document.addEventListener('mouseup', this.stopDrag);
+        },
+        
+        // 拖动高亮区域
+        onDrag(e) {
+          if (!this.isDragging) return;
+          
+          this.highlightArea.left = e.clientX - this.dragOffset.x;
+          this.highlightArea.top = e.clientY - this.dragOffset.y;
+          
+          // 限制高亮区域不超出边界
+          this.highlightArea.left = Math.max(0, Math.min(800 - this.highlightArea.width, this.highlightArea.left));
+          this.highlightArea.top = Math.max(0, Math.min(400 - this.highlightArea.height, this.highlightArea.top));
+        },
+        
+        // 停止拖动
+        stopDrag() {
+          this.isDragging = false;
+          document.removeEventListener('mousemove', this.onDrag);
+          document.removeEventListener('mouseup', this.stopDrag);
+        },
+        
+        // 切换弹窗显示
+        togglePopup() {
+          this.showPopup = !this.showPopup;
+        },
+        
+        // 随机高亮区域位置
+        randomizeHighlightArea() {
+          this.highlightArea.left = Math.floor(Math.random() * (800 - this.highlightArea.width));
+          this.highlightArea.top = Math.floor(Math.random() * (400 - this.highlightArea.height));
+        },
+        
+        // 切换九宫格显示
+        toggleZoneIndicator() {
+          this.showZoneIndicator = !this.showZoneIndicator;
+        }
+      },
+      mounted() {
+        // 初始随机位置
+        this.randomizeHighlightArea();
+      }
+    });
+  </script>
+</body>
+</html>
+```
+
+
+
